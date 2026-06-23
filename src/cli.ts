@@ -7,7 +7,7 @@ export async function run(): Promise<void> {
   const baseRef = process.env.EAS_PREFLIGHT_BASE_REF ?? 'main';
 
   const headSize = await measureBundleSize(projectDir);
-  const comparison = await compareToBaseRef(baseRef, headSize);
+  const comparison = await compareToBaseRef(projectDir, baseRef, headSize);
   const comment = formatComment(comparison);
 
   const token = process.env.GITHUB_TOKEN;
