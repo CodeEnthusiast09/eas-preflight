@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -32,6 +32,11 @@ export async function compareToBaseRef(
     // branch won't be reflected when measuring the base ref.
     await symlink(join(projectDir, 'node_modules'), join(worktreeDir, 'node_modules'));
 
+    // .env* files are gitignored, so the worktree won't have them; apps that
+    // read a required env var at module load time (Convex/Supabase URLs,
+    // API base URLs, etc.) would otherwise crash the base-ref export.
+    await symlinkEnvFiles(projectDir, worktreeDir);
+
     const baseSize = await measureBundleSize(worktreeDir);
     const deltaBytes = headSize.totalBytes - baseSize.totalBytes;
     const deltaPercent =
@@ -48,5 +53,15 @@ export async function compareToBaseRef(
       cwd: projectDir,
     }).catch(() => undefined);
     await rm(worktreeDir, { recursive: true, force: true });
+  }
+}
+
+async function symlinkEnvFiles(projectDir: string, worktreeDir: string): Promise<void> {
+  const entries = await readdir(projectDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (entry.isFile() && entry.name.startsWith('.env') && !entry.name.endsWith('.example')) {
+      await symlink(join(projectDir, entry.name), join(worktreeDir, entry.name));
+    }
   }
 }
