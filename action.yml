@@ -15,6 +15,12 @@ inputs:
     description: 'Directory containing the Expo project.'
     required: false
     default: '.'
+  max-increase-percent:
+    description: >-
+      Fail the check if bundle size increases by more than this percent.
+      Leave unset to only comment, never fail the check.
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -30,4 +36,5 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         EAS_PREFLIGHT_BASE_REF: ${{ inputs.base-ref }}
         EAS_PREFLIGHT_PR_NUMBER: ${{ github.event.pull_request.number }}
+        EAS_PREFLIGHT_MAX_INCREASE_PERCENT: ${{ inputs.max-increase-percent }}
       run: npx --yes eas-preflight

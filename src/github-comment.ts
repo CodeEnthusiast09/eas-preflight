@@ -11,10 +11,10 @@ export interface PostCommentOptions {
   prNumber: number;
 }
 
-export function formatComment(comparison: SizeComparison): string {
+export function formatComment(comparison: SizeComparison, maxIncreasePercent?: number): string {
   const sign = comparison.deltaBytes >= 0 ? '+' : '';
 
-  return [
+  const lines = [
     COMMENT_MARKER,
     '### App size check',
     '',
@@ -22,7 +22,19 @@ export function formatComment(comparison: SizeComparison): string {
     '',
     `Base: ${comparison.baseBytes} bytes`,
     `Head: ${comparison.headBytes} bytes`,
-  ].join('\n');
+  ];
+
+  if (maxIncreasePercent !== undefined) {
+    const withinThreshold = comparison.deltaPercent <= maxIncreasePercent;
+    lines.push('');
+    lines.push(
+      withinThreshold
+        ? `✅ Within the configured ${maxIncreasePercent}% threshold`
+        : `❌ Exceeds the configured ${maxIncreasePercent}% threshold`,
+    );
+  }
+
+  return lines.join('\n');
 }
 
 export async function postComment(options: PostCommentOptions, body: string): Promise<void> {
