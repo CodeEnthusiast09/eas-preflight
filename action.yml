@@ -1,0 +1,33 @@
+name: 'EAS Preflight'
+description: 'Catches Expo/React Native app bundle size regressions on every PR.'
+author: 'eas-preflight'
+
+inputs:
+  github-token:
+    description: 'Token used to post the PR comment. Defaults to the workflow GITHUB_TOKEN.'
+    required: false
+    default: ${{ github.token }}
+  base-ref:
+    description: 'Git ref to compare bundle size against. Defaults to the PR base branch.'
+    required: false
+    default: ${{ github.event.pull_request.base.ref }}
+  working-directory:
+    description: 'Directory containing the Expo project.'
+    required: false
+    default: '.'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Run eas-preflight
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        EAS_PREFLIGHT_BASE_REF: ${{ inputs.base-ref }}
+        EAS_PREFLIGHT_PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: npx --yes eas-preflight
