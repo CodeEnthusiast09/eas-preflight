@@ -14,10 +14,18 @@ export async function measureBundleSize(projectDir: string): Promise<BundleSizeR
   const outputDir = await mkdtemp(join(tmpdir(), 'eas-preflight-export-'));
 
   try {
-    await execFileAsync(
-      'npx',
-      ['expo', 'export', '--platform', 'all', '--output-dir', outputDir],
-      { cwd: projectDir, env: { ...process.env, CI: '1' } },
+    // Exported per-platform (never "all") so this never invokes expo-router's
+    // web static-render step: it has its own failure modes unrelated to
+    // actual app size, and web bundle bytes don't count toward a native
+    // App Store/Play Store binary anyway.
+    await Promise.all(
+      (['ios', 'android'] as const).map((platform) =>
+        execFileAsync(
+          'npx',
+          ['expo', 'export', '--platform', platform, '--output-dir', join(outputDir, platform)],
+          { cwd: projectDir, env: { ...process.env, CI: '1' } },
+        ),
+      ),
     );
 
     return { totalBytes: await sumDirectorySize(outputDir) };
