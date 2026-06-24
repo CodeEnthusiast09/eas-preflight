@@ -21,6 +21,12 @@ inputs:
       Leave unset to only comment, never fail the check.
     required: false
     default: ''
+  ignore-patterns:
+    description: >-
+      Comma or newline separated glob patterns (relative to the exported
+      bundle, e.g. "assets/**") to exclude from the size comparison.
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -37,4 +43,5 @@ runs:
         EAS_PREFLIGHT_BASE_REF: ${{ inputs.base-ref }}
         EAS_PREFLIGHT_PR_NUMBER: ${{ github.event.pull_request.number }}
         EAS_PREFLIGHT_MAX_INCREASE_PERCENT: ${{ inputs.max-increase-percent }}
+        EAS_PREFLIGHT_IGNORE_PATTERNS: ${{ inputs.ignore-patterns }}
       run: npx --yes eas-preflight

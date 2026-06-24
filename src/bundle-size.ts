@@ -1,8 +1,9 @@
 import { execFile } from 'node:child_process';
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { promisify } from 'node:util';
+import { minimatch } from 'minimatch';
 
 const execFileAsync = promisify(execFile);
 
@@ -10,7 +11,10 @@ export interface BundleSizeResult {
   totalBytes: number;
 }
 
-export async function measureBundleSize(projectDir: string): Promise<BundleSizeResult> {
+export async function measureBundleSize(
+  projectDir: string,
+  ignorePatterns: string[] = [],
+): Promise<BundleSizeResult> {
   const outputDir = await mkdtemp(join(tmpdir(), 'eas-preflight-export-'));
 
   try {
@@ -42,7 +46,18 @@ export async function measureBundleSize(projectDir: string): Promise<BundleSizeR
       ),
     );
 
-    return { totalBytes: await sumDirectorySize(outputDir) };
+    let totalBytes = 0;
+
+    // Sum each platform separately, with paths relative to that platform's
+    // own export root, so ignore patterns (e.g. "assets/**") match what the
+    // user actually sees in their Expo project rather than the ios/android
+    // subdirectory this function adds internally.
+    for (const platform of ['ios', 'android'] as const) {
+      const platformDir = join(outputDir, platform);
+      totalBytes += await sumDirectorySize(platformDir, platformDir, ignorePatterns);
+    }
+
+    return { totalBytes };
   } finally {
     await rm(outputDir, { recursive: true, force: true });
   }
@@ -50,15 +65,24 @@ export async function measureBundleSize(projectDir: string): Promise<BundleSizeR
 
 // Sourcemaps never ship to the device; counting them would make the size
 // comparison meaningless since they often dwarf the actual bundle.
-async function sumDirectorySize(dir: string): Promise<number> {
+async function sumDirectorySize(
+  dir: string,
+  baseDir: string,
+  ignorePatterns: string[],
+): Promise<number> {
   const entries = await readdir(dir, { withFileTypes: true });
   let total = 0;
 
   for (const entry of entries) {
     const entryPath = join(dir, entry.name);
+    const relativePath = relative(baseDir, entryPath).split(sep).join('/');
+
+    if (ignorePatterns.some((pattern) => minimatch(relativePath, pattern))) {
+      continue;
+    }
 
     if (entry.isDirectory()) {
-      total += await sumDirectorySize(entryPath);
+      total += await sumDirectorySize(entryPath, baseDir, ignorePatterns);
     } else if (!entry.name.endsWith('.map')) {
       total += (await stat(entryPath)).size;
     }

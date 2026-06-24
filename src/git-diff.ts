@@ -18,6 +18,7 @@ export async function compareToBaseRef(
   projectDir: string,
   baseRef: string,
   headSize: BundleSizeResult,
+  ignorePatterns: string[] = [],
 ): Promise<SizeComparison> {
   const worktreeDir = await mkdtemp(join(tmpdir(), 'eas-preflight-worktree-'));
 
@@ -45,7 +46,7 @@ export async function compareToBaseRef(
     // API base URLs, etc.) would otherwise crash the base-ref export.
     await symlinkEnvFiles(projectDir, baseProjectDir);
 
-    const baseSize = await measureBundleSize(baseProjectDir);
+    const baseSize = await measureBundleSize(baseProjectDir, ignorePatterns);
     const deltaBytes = headSize.totalBytes - baseSize.totalBytes;
     const deltaPercent =
       baseSize.totalBytes === 0 ? 0 : (deltaBytes / baseSize.totalBytes) * 100;
