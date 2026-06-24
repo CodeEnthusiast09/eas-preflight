@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { mkdtemp, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { promisify } from 'node:util';
 import { measureBundleSize, type BundleSizeResult } from './bundle-size.js';
 
@@ -22,6 +22,14 @@ export async function compareToBaseRef(
   const worktreeDir = await mkdtemp(join(tmpdir(), 'eas-preflight-worktree-'));
 
   try {
+    // `git worktree add` checks out the whole repo, not just projectDir, so
+    // in a monorepo (Expo app in a subdirectory) the project actually lands
+    // at worktreeDir/<subpath>, not at worktreeDir itself.
+    const { stdout: repoRoot } = await execFileAsync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: projectDir,
+    });
+    const baseProjectDir = join(worktreeDir, relative(repoRoot.trim(), projectDir));
+
     await execFileAsync('git', ['worktree', 'add', '--detach', worktreeDir, baseRef], {
       cwd: projectDir,
     });
@@ -30,14 +38,14 @@ export async function compareToBaseRef(
     // base ref; acceptable for v1 since dependency trees rarely change
     // between adjacent commits, but means a real dependency bump on the PR
     // branch won't be reflected when measuring the base ref.
-    await symlink(join(projectDir, 'node_modules'), join(worktreeDir, 'node_modules'));
+    await symlink(join(projectDir, 'node_modules'), join(baseProjectDir, 'node_modules'));
 
     // .env* files are gitignored, so the worktree won't have them; apps that
     // read a required env var at module load time (Convex/Supabase URLs,
     // API base URLs, etc.) would otherwise crash the base-ref export.
-    await symlinkEnvFiles(projectDir, worktreeDir);
+    await symlinkEnvFiles(projectDir, baseProjectDir);
 
-    const baseSize = await measureBundleSize(worktreeDir);
+    const baseSize = await measureBundleSize(baseProjectDir);
     const deltaBytes = headSize.totalBytes - baseSize.totalBytes;
     const deltaPercent =
       baseSize.totalBytes === 0 ? 0 : (deltaBytes / baseSize.totalBytes) * 100;
