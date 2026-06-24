@@ -18,11 +18,25 @@ export async function measureBundleSize(projectDir: string): Promise<BundleSizeR
     // web static-render step: it has its own failure modes unrelated to
     // actual app size, and web bundle bytes don't count toward a native
     // App Store/Play Store binary anyway.
+    //
+    // --clear forces a fresh Metro cache: without it, measuring two
+    // different checkouts back-to-back (head, then base ref) can return a
+    // stale cached bundle from the other checkout, silently corrupting the
+    // comparison (observed: base ref measured ~3x its real size, matching
+    // head almost exactly).
     await Promise.all(
       (['ios', 'android'] as const).map((platform) =>
         execFileAsync(
           'npx',
-          ['expo', 'export', '--platform', platform, '--output-dir', join(outputDir, platform)],
+          [
+            'expo',
+            'export',
+            '--platform',
+            platform,
+            '--output-dir',
+            join(outputDir, platform),
+            '--clear',
+          ],
           { cwd: projectDir, env: { ...process.env, CI: '1' } },
         ),
       ),
