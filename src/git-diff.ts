@@ -30,8 +30,9 @@ export async function compareToBaseRef(
       cwd: projectDir,
     });
     const baseProjectDir = join(worktreeDir, relative(repoRoot.trim(), projectDir));
+    const resolvedBaseRef = await resolveBaseRef(projectDir, baseRef);
 
-    await execFileAsync('git', ['worktree', 'add', '--detach', worktreeDir, baseRef], {
+    await execFileAsync('git', ['worktree', 'add', '--detach', worktreeDir, resolvedBaseRef], {
       cwd: projectDir,
     });
 
@@ -63,6 +64,28 @@ export async function compareToBaseRef(
     }).catch(() => undefined);
     await rm(worktreeDir, { recursive: true, force: true });
   }
+}
+
+// actions/checkout never creates a local branch for the base ref, only a
+// remote-tracking one (refs/remotes/origin/<baseRef>), even with
+// fetch-depth: 0. `git worktree add --detach` does not fall back to a
+// remote-tracking branch the way a plain `git checkout <branch>` would, so
+// "main" alone fails with "invalid reference" in real CI. Try the bare ref
+// first (works for local clones that already have the branch), then fall
+// back to the origin-qualified ref.
+async function resolveBaseRef(projectDir: string, baseRef: string): Promise<string> {
+  const candidates = [baseRef, `origin/${baseRef}`];
+
+  for (const candidate of candidates) {
+    try {
+      await execFileAsync('git', ['rev-parse', '--verify', candidate], { cwd: projectDir });
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(`Could not resolve base ref "${baseRef}" (tried: ${candidates.join(', ')})`);
 }
 
 async function symlinkEnvFiles(projectDir: string, worktreeDir: string): Promise<void> {
