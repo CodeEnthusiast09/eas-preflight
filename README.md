@@ -25,8 +25,9 @@ nobody notice until users complain about install size. eas-preflight turns that 
 reviewable diff on every PR, the same way a test coverage bot would.
 
 v1 measures JS bundle size only (via `expo export --platform ios|android`), as a proxy for what
-actually ships in the binary. It deliberately does not check dependency compatibility or
-config/env drift, both judged out of scope for v1 (see [CLAUDE.md](./CLAUDE.md)).
+actually ships in the binary. It deliberately does not check dependency compatibility, since
+`expo-doctor` already covers that well, or config/env drift, which was judged too prone to false
+positives to ship without a user-defined schema.
 
 ## Usage
 
@@ -45,7 +46,7 @@ jobs:
         with:
           fetch-depth: 0 # needed so the base branch is available to diff against
 
-      - uses: CodeEnthusiast09/eas-preflight@main
+      - uses: CodeEnthusiast09/eas-preflight@v1
         with:
           max-increase-percent: '10'
 ```

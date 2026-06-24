@@ -1,6 +1,6 @@
 {
   "name": "eas-preflight",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Catches Expo/React Native app bundle size regressions on every PR, before they ship.",
   "type": "module",
   "license": "MIT",
